@@ -7,8 +7,5 @@ func new --name KeyRotator --template "Timer trigger"
 # Add packages for Azure Management SDK
 dotnet add package Azure.ResourceManager.Resources
 dotnet add package Azure.ResourceManager.AppService
-dotnet add package Azure.ResourceManager.Storage
+dotnet add package Azure.ResourceManager.CognitiveServices
 dotnet add package Azure.Identity
-
-https://learn.microsoft.com/en-us/dotnet/azure/sdk/resource-management?tabs=dotnetcli
-https://learn.microsoft.com/en-us/dotnet/azure/sdk/pagination

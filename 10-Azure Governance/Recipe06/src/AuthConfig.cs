@@ -9,15 +9,11 @@ namespace src
 {
     internal class AuthConfig
     {
-        public string ClientId { get; set; }
-        public string ClientSecret { get; set; }
-        public string TenantId { get; set; }
+        public string ManagedIdentityId { get; set; }
 
         public void Load(IConfiguration configuration)
         {
-            this.ClientId = configuration["ClientId"];
-            this.ClientSecret = configuration["ClientSecret"];
-            this.TenantId = configuration["TenantId"];
+            this.ManagedIdentityId = configuration["ManagedIdentityId"];
         }
     }
 }

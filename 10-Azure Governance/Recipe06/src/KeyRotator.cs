@@ -38,15 +38,15 @@ namespace src
         }
 
         [FunctionName("KeyRotator")]
-        public async Task Run([TimerTrigger("0 */2 * * * *")] TimerInfo myTimer,
+        public async Task Run([TimerTrigger("%RotationTimer%")] TimerInfo myTimer,
             ILogger log)
         {
 
-            log.LogInformation($"C# Timer trigger function executed at: {DateTime.Now}");
+            log.LogInformation($"KeyRotator executed at: {DateTime.Now}");
 
             // Create the AzureCredential instance using ClientId,ClientSecret and 
-            var credentials = new ClientSecretCredential(_authConfig.TenantId, _authConfig.ClientId, _authConfig.ClientSecret);
-
+            var credentials = new DefaultAzureCredential(new DefaultAzureCredentialOptions { ManagedIdentityClientId = _authConfig.ManagedIdentityId });
+            
             // Create the ARM Client instance using the credentials
             ArmClient client = new ArmClient(credentials);
             
@@ -82,6 +82,8 @@ namespace src
                     newKey = cognitiveKeys.Key1;
                 }
 
+                log.LogInformation($"Key to rotate: {keyNameToRotate}");
+                
                 // Update the App Service configuration with the new key
                 appSettings.Properties[_resourceConfig.CognitiveKeySettingName] = newKey;
                 await appservice.UpdateApplicationSettingsAsync(appSettings, default);

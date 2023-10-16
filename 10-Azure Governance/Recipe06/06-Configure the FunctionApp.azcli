@@ -1,0 +1,9 @@
+az functionapp config appsettings set \
+    --name $functionapp_name \
+    --resource-group Recipe10-06-rg \
+    --settings SubscriptionId="$subscription_id" \
+    --settings ManagedIdentityId="$managed_identity_id" \
+    --settings CognitiveKeySettingName="CognitiveKey" \
+    --settings AppServiceName="$appservice_name" \
+    --settings ResourceGroupName="Recipe10-06-rg" \
+    --settings RotationTimer="0 */2 * * * *"

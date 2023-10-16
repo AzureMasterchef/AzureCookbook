@@ -1,1 +1,0 @@
-func azure functionapp publish $functionapp_name --publish-local-settings --overwrite-settings
