@@ -1,14 +1,14 @@
-$envPrefix = "Recipe10-04"
+$envPrefix = "Recipe11-03"
 $location = "westeurope"
 $rgName = "$envPrefix-rg"
-$vmName = "AutoUpdated-VM"
+$vmName = "Demo-VM"
 
 $rg = Get-AzResourceGroup -Name $rgName -ErrorAction SilentlyContinue
 if(-not $rg) {
     $rg = New-AzResourceGroup -Name $rgName -Location $location
 }
 
-Invoke-WebRequest -URI "https://raw.githubusercontent.com/AzureMasterchef/AzureCookbook/main/10-Azure%20Governance/Recipe04/main.bicep" `
+Invoke-WebRequest -URI "https://raw.githubusercontent.com/AzureMasterchef/AzureCookbook/main/11-Azure%20Monitoring/Recipe03/main.bicep" `
     -OutFile main.bicep -
 
 New-AzResourceGroupDeployment -ResourceGroupName $rgName `
