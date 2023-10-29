@@ -8,8 +8,12 @@ if(-not $rg) {
     $rg = New-AzResourceGroup -Name $rgName -Location $location
 }
 
+if (Get-Item .\main.bicep) {
+    Remove-Item .\main.bicep
+}
+
 Invoke-WebRequest -URI "https://raw.githubusercontent.com/AzureMasterchef/AzureCookbook/main/11-Azure%20Monitoring/Recipe03/main.bicep" `
-    -OutFile main.bicep -
+    -OutFile main.bicep
 
 New-AzResourceGroupDeployment -ResourceGroupName $rgName `
     -TemplateFile .\main.bicep `
