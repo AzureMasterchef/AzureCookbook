@@ -21,5 +21,5 @@ az appservice plan create --name $appserviceplan_name --resource-group $resource
 az webapp create --name $appservice_name --resource-group $resource_group_name --plan $appserviceplan_name --query "{AppServiceName:name}" -o table
 
 # Create Function app and storage
-az storage account create --name $functionapp_storage_name --resource-group Recipe10-06-rg --location $location --sku Standard_LRS --kind StorageV2 --only-show-errors -o none
-az functionapp create --name $functionapp_name --resource-group Recipe10-06-rg --storage-account $functionapp_storage_name --consumption-plan-location $location --runtime dotnet --runtime-version 6.0 --functions-version 4 --os-type Windows --disable-app-insights --query "{FunctionAppName:name}" -o table
+az storage account create --name $functionapp_storage_name --resource-group $resource_group_name --location $location --sku Standard_LRS --kind StorageV2 --only-show-errors -o none
+az functionapp create --name $functionapp_name --resource-group $resource_group_name --storage-account $functionapp_storage_name --consumption-plan-location $location --runtime dotnet --runtime-version 6.0 --functions-version 4 --os-type Windows --disable-app-insights --query "{FunctionAppName:name}" -o table
