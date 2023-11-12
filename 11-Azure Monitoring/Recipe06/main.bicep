@@ -46,6 +46,9 @@ resource nic 'Microsoft.Network/networkInterfaces@2023-05-01' = {
 resource vm 'Microsoft.Compute/virtualMachines@2023-07-01' = {
   name: vmName
   location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     hardwareProfile: {
       vmSize: vmSize
@@ -89,14 +92,10 @@ resource daExtension 'Microsoft.Compute/virtualMachines/extensions@2023-07-01' =
     type: 'DependencyAgentWindows'
     typeHandlerVersion: '9.5'
     autoUpgradeMinorVersion: true
-    settings: {
-      workspaceId: logAnalyticsWorkspace.id
-
-    }
   }
 }
 
-resource windowsAgent 'Microsoft.Compute/virtualMachines/extensions@2021-11-01' = {
+resource windowsAgent 'Microsoft.Compute/virtualMachines/extensions@2023-07-01' = {
   parent: vm
   name: 'AzureMonitorWindowsAgent'
   location: location
@@ -106,7 +105,6 @@ resource windowsAgent 'Microsoft.Compute/virtualMachines/extensions@2021-11-01' 
     typeHandlerVersion: '1.0'
     autoUpgradeMinorVersion: true
     enableAutomaticUpgrade: true
-
   }
 }
 
@@ -173,7 +171,7 @@ resource dcr 'Microsoft.Insights/dataCollectionRules@2021-04-01' = {
   }
 }
 
-resource association 'Microsoft.Insights/dataCollectionRuleAssociations@2021-09-01-preview' = {
+resource association 'Microsoft.Insights/dataCollectionRuleAssociations@2022-06-01' = {
   name: '${vmName}-DCR-Link'
   scope: vm
   properties: {
