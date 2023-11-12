@@ -82,7 +82,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-07-01' = {
 
 resource daExtension 'Microsoft.Compute/virtualMachines/extensions@2023-07-01' = {
   parent: vm
-  name: '${vmName}-Insights'
+  name: '${vm.name}-DA'
   location: location
   properties: {
     publisher: 'Microsoft.Azure.Monitoring.DependencyAgent'
@@ -93,7 +93,7 @@ resource daExtension 'Microsoft.Compute/virtualMachines/extensions@2023-07-01' =
 }
 
 resource windowsAgent 'Microsoft.Compute/virtualMachines/extensions@2021-11-01' = {
-  name: '${vmName}-AzureMonitorWindowsAgent'
+  name: '${vm.name}-AzureMonitorWindowsAgent'
   location: location
   properties: {
     publisher: 'Microsoft.Azure.Monitor'
