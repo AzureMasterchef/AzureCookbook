@@ -91,6 +91,7 @@ resource daExtension 'Microsoft.Compute/virtualMachines/extensions@2023-07-01' =
     autoUpgradeMinorVersion: true
     settings: {
       workspaceId: logAnalyticsWorkspace.id
+
     }
   }
 }
@@ -105,13 +106,11 @@ resource windowsAgent 'Microsoft.Compute/virtualMachines/extensions@2021-11-01' 
     typeHandlerVersion: '1.0'
     autoUpgradeMinorVersion: true
     enableAutomaticUpgrade: true
-    settings: {
-      workspaceId: logAnalyticsWorkspace.id
-    }
+
   }
 }
 
-resource MSVMI_PerfandDa_userGivenDcr 'Microsoft.Insights/dataCollectionRules@2021-04-01' = {
+resource dcr 'Microsoft.Insights/dataCollectionRules@2021-04-01' = {
   name: 'MSVMI-PerfandDa-${vmName}'
   location: location
   properties: {
@@ -136,7 +135,11 @@ resource MSVMI_PerfandDa_userGivenDcr 'Microsoft.Insights/dataCollectionRules@20
             'Microsoft-ServiceMap'
           ]
           extensionName: 'DependencyAgent'
-          extensionSettings: {}
+          extensionSettings: {
+            DependencyAgent: {
+              name: 'DependencyAgentWindows'
+            }
+          }
           name: 'DependencyAgentDataSource'
         }
       ]
@@ -170,6 +173,14 @@ resource MSVMI_PerfandDa_userGivenDcr 'Microsoft.Insights/dataCollectionRules@20
   }
 }
 
+resource association 'Microsoft.Insights/dataCollectionRuleAssociations@2021-09-01-preview' = {
+  name: '${vmName}-DCR-Link'
+  scope: vm
+  properties: {
+    description: 'Association of data collection rule. Deleting this association will break the data collection for this virtual machine.'
+    dataCollectionRuleId: dcr.id
+  }
+}
 
 resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   name: '${envPrefix}-LAW'
@@ -178,19 +189,5 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10
     sku: {
       name: 'PerGB2018'
     }
-  }
-}
-
-resource solution 'Microsoft.OperationsManagement/solutions@2015-11-01-preview' = {
-  location: location
-  name: 'VMInsights(${split(logAnalyticsWorkspace.id, '/')[8]})'
-  properties: {
-    workspaceResourceId: logAnalyticsWorkspace.id
-  }
-  plan: {
-    name: 'VMInsights(${split(logAnalyticsWorkspace.id, '/')[8]})'
-    product: 'OMSGallery/VMInsights'
-    promotionCode: ''
-    publisher: 'Microsoft'
   }
 }
