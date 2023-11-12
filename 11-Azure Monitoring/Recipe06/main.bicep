@@ -87,7 +87,7 @@ resource daExtension 'Microsoft.Compute/virtualMachines/extensions@2023-07-01' =
   properties: {
     publisher: 'Microsoft.Azure.Monitoring.DependencyAgent'
     type: 'DependencyAgentWindows'
-    typeHandlerVersion: '10.0'
+    typeHandlerVersion: '9.5'
     autoUpgradeMinorVersion: true
     settings: {
       workspaceId: logAnalyticsWorkspace.id
@@ -110,6 +110,66 @@ resource windowsAgent 'Microsoft.Compute/virtualMachines/extensions@2021-11-01' 
     }
   }
 }
+
+resource MSVMI_PerfandDa_userGivenDcr 'Microsoft.Insights/dataCollectionRules@2021-04-01' = {
+  name: 'MSVMI-PerfandDa-${vmName}'
+  location: location
+  properties: {
+    description: 'Data collection rule for VM Insights.'
+    dataSources: {
+      performanceCounters: [
+        {
+          name: 'VMInsightsPerfCounters'
+          streams: [
+            'Microsoft-InsightsMetrics'
+          ]
+          scheduledTransferPeriod: 'PT1M'
+          samplingFrequencyInSeconds: 60
+          counterSpecifiers: [
+            '\\VmInsights\\DetailedMetrics'
+          ]
+        }
+      ]
+      extensions: [
+        {
+          streams: [
+            'Microsoft-ServiceMap'
+          ]
+          extensionName: 'DependencyAgent'
+          extensionSettings: {}
+          name: 'DependencyAgentDataSource'
+        }
+      ]
+    }
+    destinations: {
+      logAnalytics: [
+        {
+          workspaceResourceId: logAnalyticsWorkspace.id
+          name: 'VMInsightsPerf-Logs-Dest'
+        }
+      ]
+    }
+    dataFlows: [
+      {
+        streams: [
+          'Microsoft-InsightsMetrics'
+        ]
+        destinations: [
+          'VMInsightsPerf-Logs-Dest'
+        ]
+      }
+      {
+        streams: [
+          'Microsoft-ServiceMap'
+        ]
+        destinations: [
+          'VMInsightsPerf-Logs-Dest'
+        ]
+      }
+    ]
+  }
+}
+
 
 resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   name: '${envPrefix}-LAW'
