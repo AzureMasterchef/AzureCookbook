@@ -82,18 +82,22 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-07-01' = {
 
 resource daExtension 'Microsoft.Compute/virtualMachines/extensions@2023-07-01' = {
   parent: vm
-  name: '${vm.name}-DA'
+  name: 'DependencyAgentWindows'
   location: location
   properties: {
     publisher: 'Microsoft.Azure.Monitoring.DependencyAgent'
     type: 'DependencyAgentWindows'
     typeHandlerVersion: '10.0'
     autoUpgradeMinorVersion: true
+    settings: {
+      workspaceId: logAnalyticsWorkspace.id
+    }
   }
 }
 
 resource windowsAgent 'Microsoft.Compute/virtualMachines/extensions@2021-11-01' = {
-  name: '${vm.name}-AzureMonitorWindowsAgent'
+  parent: vm
+  name: 'AzureMonitorWindowsAgent'
   location: location
   properties: {
     publisher: 'Microsoft.Azure.Monitor'
@@ -101,6 +105,9 @@ resource windowsAgent 'Microsoft.Compute/virtualMachines/extensions@2021-11-01' 
     typeHandlerVersion: '1.0'
     autoUpgradeMinorVersion: true
     enableAutomaticUpgrade: true
+    settings: {
+      workspaceId: logAnalyticsWorkspace.id
+    }
   }
 }
 
