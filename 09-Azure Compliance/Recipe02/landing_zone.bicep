@@ -13,7 +13,7 @@ module storage_with_pe 'storage.bicep' = [for i in range(1, 2): {
   name: 'storage${i}'
   scope: rg
   params: {
-    location: rg.location
+    location: location
     storageAccountName: '${storageAccountName}0${i}'
   }
 }]
