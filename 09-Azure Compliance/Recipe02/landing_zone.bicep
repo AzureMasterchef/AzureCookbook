@@ -18,4 +18,3 @@ module storage_with_pe 'storage.bicep' = [for i in range(1, 2): {
   }
 }]
 
-

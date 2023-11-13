@@ -9,12 +9,12 @@ if(-not $rg) {
 }
 
 # Get the bicep file from the git repo
-if (Get-Item .\storage_with_pe.bicep) {
-    Remove-Item .\storage_with_pe.bicep
+if (Get-Item .\storage.bicep) {
+    Remove-Item .\storage.bicep
 }
 
-Invoke-WebRequest -URI "https://raw.githubusercontent.com/AzureMasterchef/AzureCookbook/main/09-Azure%20Compliance/Recipe02/storage_with_pe.bicep" `
-    -OutFile storage_with_pe.bicep
+Invoke-WebRequest -URI "https://raw.githubusercontent.com/AzureMasterchef/AzureCookbook/main/09-Azure%20Compliance/Recipe02/storage.bicep" `
+    -OutFile storage.bicep
 
 if (Get-Item .\landing_zone.bicep) {
     Remove-Item .\landing_zone.bicep
@@ -41,8 +41,7 @@ $parameters = @{
 
 New-AzSubscriptionDeploymentStack  `
     -Name "$envPrefix-DeploymentStack" `
-    -DeploymentResourceGroupName  "$envPrefix-managed-RG" `
-    -TemplateSpec $templateSpec_v1.Id `
+    -TemplateSpec $templateSpec_v1.versions.Id `
     -TemplateParameterObject $parameters `
     -DeleteAll `
     -DenySettingsApplyToChildScopes `
@@ -61,7 +60,7 @@ $templateSpec_v2 = New-AzTemplateSpec -Name "$envPrefix-landingZone-ts" `
 Set-AzSubscriptionDeploymentStack  `
     -Name "$envPrefix-DeploymentStack" `
     -DeploymentResourceGroupName  "$envPrefix-managed-RG" `
-    -TemplateSpec $templateSpec_v2.Id `
+    -TemplateSpec $templateSpec_v2.versions.Id `
     -TemplateParameterObject $parameters `
     -DeleteAll `
     -DenySettingsApplyToChildScopes `
