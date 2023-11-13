@@ -1,7 +1,7 @@
 targetScope = 'subscription'
 
-param rgName string = 'Recipe09-02-rg'
-param location string = 'eastus'
+param rgName string
+param location string
 param storageAccountName string
 
 resource rg 'Microsoft.Resources/resourceGroups@2023-07-01' = {
