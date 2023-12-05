@@ -4,12 +4,12 @@
 	"files" : 
 	[
 		{
-			"blob" : "2023/11/05/00-04-07/inventoryRule/inventoryRule.csv",
-			"size" : 1024
+			"blob" : "2023/12/05/07-05-19/inventoryRule/inventoryRule.csv",
+			"size" : 1484
 		}
 	],
-	"inventoryCompletionTime" : "2023-11-05T00:18:09Z",
-	"inventoryStartTime" : "2023-11-05T00:04:07Z",
+	"inventoryCompletionTime" : "2023-12-05T07:31:23Z",
+	"inventoryStartTime" : "2023-12-05T07:05:19Z",
 	"ruleDefinition" : 
 	{
 		"filters" : 
@@ -76,7 +76,7 @@
 	"summary" : 
 	{
 		"objectCount" : 5,
-		"totalObjectSize" : 20480 
+		"totalObjectSize" : 14274
 	},
 	"version" : "1.0"
 }
