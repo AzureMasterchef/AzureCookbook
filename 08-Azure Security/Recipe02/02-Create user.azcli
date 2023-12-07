@@ -7,7 +7,3 @@ az ad user create --display-name $user_name --password $user_password  --user-pr
 
 echo "User : "$user_principal_name
 echo "Password : "$user_password 
-
-
-User : ChefAssistant@MngEnv450151.onmicrosoft.com
-Password : @f2DhltphFFQ
