@@ -9,7 +9,7 @@ if(-not $rg) {
 }
 
 # Create the ACR used for Bicep files
-$acrName = "$envPrefix$(Get-Random -Minimum 1000 -Maximum 99999999)"
+$acrName = "$($envPrefix.Replace('-', ''))$(Get-Random -Minimum 1000 -Maximum 99999999)"
 $acr = Get-AzContainerRegistry -Name $acrName -ResourceGroupName $rgName -ErrorAction SilentlyContinue
 if(-not $acr) {
     $acr = New-AzContainerRegistry -Name $acrName `
@@ -17,4 +17,6 @@ if(-not $acr) {
                 -Location $location `
                 -Sku Basic
 }
+
+Write-Host "ACR uri: $($acr.LoginServer)"
 

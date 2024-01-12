@@ -8,12 +8,7 @@ if(-not $rg) {
     $rg = New-AzResourceGroup -Name $rgName -Location $location
 }
 
-if (Get-Item .\main.bicep) {
-    Remove-Item .\main.bicep
-}
-
-Invoke-WebRequest -URI "https://raw.githubusercontent.com/AzureMasterchef/AzureCookbook/main/10-Azure%20Governance/Recipe04/main.bicep" `
-    -OutFile main.bicep 
+# Upload the main.bicep file from the Chapter10/Recipe04 folder to cloud shell
 
 New-AzResourceGroupDeployment -ResourceGroupName $rgName `
     -TemplateFile .\main.bicep `
