@@ -1,5 +1,5 @@
 param location string = 'westeurope'
-param envPrefix string = 'Recipe07-02'
+param envPrefix string = 'Recipe07-03'
 param vmAdminUsername string = 'adminUser'
 @secure()
 param vmAdminPassword string
@@ -12,7 +12,7 @@ var storageAccountName = take(toLower('recipe0702sa${uniqueString(resourceGroup(
 var dnsZoneName = 'privatelink.blob.${environment().suffixes.storage}'
 var peName = '${envPrefix}-STORAGE-PE'
 var automationAccountName = '${envPrefix}-AUTOMATION'
-var runbookName = 'recipe0702runbook'
+var runbookName = 'recipe0703runbook'
 var roleDefinitionStorageBlobDataContributor = subscriptionResourceId('Microsoft.Authorization/roleDefinition', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
 
 resource vnet 'Microsoft.Network/virtualNetworks@2021-02-01' = {
