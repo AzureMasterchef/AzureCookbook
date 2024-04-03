@@ -149,6 +149,19 @@ resource privateDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLin
   }
 }
 
+resource privDnsRecord 'Microsoft.Network/privateDnsZones/A@2020-06-01' = {
+  parent: privateDnsZone
+  name: storageAccount.name
+  properties: {
+    ttl: 300
+    aRecords: [
+      {
+        ipv4Address: privateEndpoint.properties.networkInterfaces[0].properties.ipConfigurations[0].properties.privateIPAddress
+      }
+    ]
+  }
+}
+
 resource automationAccount 'Microsoft.Automation/automationAccounts@2023-11-01' = {
   name: automationAccountName
   location: location
