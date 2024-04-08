@@ -1,4 +1,3 @@
-
 $envPrefix = "Recipe07-03"
 $location = "westeurope"
 $rgName = "$envPrefix-rg"
@@ -15,3 +14,8 @@ New-AzResourceGroupDeployment -ResourceGroupName $rgName `
     -envPrefix $envPrefix `
     -Location $location
 
+# Execute on the VM via RunCommand
+Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+Install-Module Az.Storage -Force
+Install-Moduke Az.Resources -Force
+Get-Module -ListAvailable Az.Storage 

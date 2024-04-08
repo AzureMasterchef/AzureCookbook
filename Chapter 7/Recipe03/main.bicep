@@ -8,12 +8,13 @@ var vnetName = '${envPrefix}-VNET'
 var subnetName = 'subnet'
 var vmName = '${envPrefix}-VM'
 var nicName = '${vmName}-NIC'
-var storageAccountName = take(toLower('recipe0702sa${uniqueString(resourceGroup().id)}'), 24)
+var storageAccountName = take(toLower('recipe0703sa${uniqueString(resourceGroup().id)}'), 24)
 var dnsZoneName = 'privatelink.blob.${environment().suffixes.storage}'
 var peName = '${envPrefix}-STORAGE-PE'
 var automationAccountName = '${envPrefix}-AUTOMATION'
 var runbookName = 'recipe0703runbook'
 var roleDefinitionStorageBlobDataContributor = subscriptionResourceId('Microsoft.Authorization/roleDefinition', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+var roleDefinitionReader = subscriptionResourceId('Microsoft.Authorization/roleDefinition', 'acdd72a7-3385-48ef-bd42-f606fba81ae7')
 
 resource vnet 'Microsoft.Network/virtualNetworks@2021-02-01' = {
   name: vnetName
@@ -107,7 +108,7 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01'
 }
 
 resource blobContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
-  name: 'recipe0702'
+  name: 'recipe0703'
   parent: blobService
 }
 
@@ -149,14 +150,16 @@ resource privateDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLin
   }
 }
 
-resource privDnsRecord 'Microsoft.Network/privateDnsZones/A@2020-06-01' = {
-  parent: privateDnsZone
-  name: storageAccount.name
+resource privateEndpointDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-09-01' = {
+  name: '${peName}-DNSZoneGroup'
+  parent: privateEndpoint
   properties: {
-    ttl: 300
-    aRecords: [
+    privateDnsZoneConfigs: [
       {
-        ipv4Address: privateEndpoint.properties.networkInterfaces[0].properties.ipConfigurations[0].properties.privateIPAddress
+        name: 'default'
+        properties: {
+          privateDnsZoneId: privateDnsZone.id
+        }
       }
     ]
   }
@@ -175,7 +178,18 @@ resource automationAccount 'Microsoft.Automation/automationAccounts@2023-11-01' 
   }
 }
 
-resource roleAssignment 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
+resource runbook 'Microsoft.Automation/automationAccounts/runbooks@2023-11-01' = {
+  name: runbookName
+  parent: automationAccount
+  location: location
+  properties: {
+    runbookType: 'PowerShell'
+    logProgress: true
+    logVerbose: true
+  }
+}
+
+resource blobRoleAssignment 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
   name: guid(subscription().id, resourceGroup().id, roleDefinitionStorageBlobDataContributor)
   properties: {
     principalId: automationAccount.identity.principalId
@@ -184,13 +198,11 @@ resource roleAssignment 'Microsoft.Authorization/roleAssignments@2020-04-01-prev
   scope: storageAccount
 }
 
-resource runbook 'Microsoft.Automation/automationAccounts/runbooks@2023-11-01' = {
-  name: runbookName
-  parent: automationAccount
-  location: location
+resource readerRoleAssignment 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
+  name: guid(subscription().id, resourceGroup().id, roleDefinitionReader)
   properties: {
-    runbookType: 'PowerShell72'
-    logProgress: true
-    logVerbose: true
+    principalId: automationAccount.identity.principalId
+    roleDefinitionId: roleDefinitionReader
   }
+  scope: storageAccount
 }
