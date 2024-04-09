@@ -17,10 +17,3 @@ az network public-ip create --resource-group $resource_group_name --name frontEn
 # Create the public load balancer
 az network lb create --resource-group $resource_group_name --name frontEndLB --sku Standard --public-ip-address frontEndPIP --frontend-ip-name lbFrontEndIp --backend-pool-name lbBackendPool -o none
 az network lb rule create --resource-group $resource_group_name --name HTTPRule --lb-name frontEndLB --backend-pool-name lbBackendPool --frontend-ip-name lbFrontEndIp --protocol Tcp --frontend-port 80 --backend-port 80 -o none
-
-# Create Storage Account for scripts
-az storage account create --name $scripts_storage_name --resource-group $resource_group_name --location $location --sku Standard_LRS --only-show-errors --query "{ScriptsStorageName:name}" -o table
-
-# Create "scripts" container in the  Storage Account
-accountKey=$(az storage account keys list --account-name $scripts_storage_name --query "[0].value" --output tsv)
-az storage container create --name scripts --account-name $scripts_storage_name --account-key $accountKey --only-show-errors -o none
