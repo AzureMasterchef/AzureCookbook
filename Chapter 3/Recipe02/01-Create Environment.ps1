@@ -41,8 +41,9 @@ $nic = New-AzNetworkInterface -ResourceGroupName $rgName `
     -EnableAcceleratedNetworking
 $diskconfig = New-AzDiskConfig `
                 -Location $location `
+                -Zone 1 `
                 -DiskSizeGB 2048 `
-                -DiskIOPSReadWrite 8000 `
+                -DiskIOPSReadWrite 8800 `
                 -DiskMBpsReadWrite 550 `
                 -AccountType PremiumV2_LRS `
                 -LogicalSectorSize 4096 `
@@ -52,34 +53,25 @@ $dataDisk = New-AzDisk `
                 -DiskName "$envPrefix-VM-DataDisk" `
                 -Disk $diskconfig
 $vmConfig = New-AzVMConfig -VMName "$envPrefix-VM" `
-                -VMSize "Standard_E4bds_v5"
-$vmConfig = Set-AzVMOperatingSystem -Windows `
+                -VMSize "Standard_E4bds_v5" `
+                -Zone 1
+Set-AzVMSourceImage -PublisherName "MicrosoftWindowsServer" `
+                -Offer "WindowsServer" `
+                -Skus "2022-datacenter-azure-edition" `
+                -Version "latest" `
+                -VM $vmConfig
+Set-AzVMOperatingSystem -Windows `
                 -ComputerName "$envPrefix-VM" `
                 -Credential $credential `
                 -ProvisionVMAgent `
-                -EnableAutoUpdate
-$vmConfig = Set-AzVMSourceImage -PublisherName "MicrosoftWindowsServer" `
-                -Offer "WindowsServer" `
-                -Skus "2022-datacenter-azure-edition" `
-                -Version "latest"
-$vmConfig = Add-AzVMNetworkInterface -Id $nic.Id
-$vmConfig = Set-AzVMOSDisk -CreateOption FromImage -Windows
-$vmConfig = Add-AzVMDataDisk -Caching None `
-                -CreateOption Empty `
-                -DiskSizeInGB 2048 `
-                -ManagedDiskId $dataDisk.Id
+                -EnableAutoUpdate `
+                -VM $vmConfig
+$vmConfig | Add-AzVMNetworkInterface -Id $nic.Id
+Add-AzVMDataDisk -VM $vmConfig `
+    -Name "$envPrefix-VM-DataDisk"  `
+    -CreateOption Attach `
+    -ManagedDiskId $dataDisk.Id `
+    -Lun 0 `
+    -Caching None
 
 $vmConfig | New-AzVM -ResourceGroupName $rgName -Location $location
-
-# New-AzVM -ResourceGroupName $rgName `
-#     -Name "Demo-VM" `
-#     -Location $location `
-#     -VirtualNetworkName "$envPrefix-vnet" `
-#     -SubnetName "subnet1" `
-#     -OpenPorts 3389 `
-#     -Credential (New-Object PSCredential "adminUser", $adminPassword) `
-#     -Image Win2022AzureEdition `
-#     -Size "Standard_E4bds_v5" `
-#     -
-        
-
