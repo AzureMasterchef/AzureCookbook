@@ -1,12 +1,37 @@
 param location string = resourceGroup().location
-param vmName string
 param vmSize string = 'Standard_D2s_v3'
 param envPrefix string
 param adminUsername string = 'adminUser'
 @secure()
 param adminPassword string
 
-resource hubvnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
+var fwName = 'AZFW'
+
+var vmList = [
+  {
+    name: 'VM1'
+    ip: '192.168.0.10'
+  }
+  {
+    name: 'VM2'
+    ip: '172.16.0.10'
+  } 
+]
+
+var spokeList = [
+  {
+    name: '${envPrefix}-SPOKE1-VNET'
+    addressPrefix: '192.168.0.0/24'
+    subnetPrefix: '192.168.0.0/25'
+  }
+  {
+    name: '${envPrefix}-SPOKE2-VNET'
+    addressPrefix: '172.16.0.0/24'
+    subnetPrefix: '172.16.0.0/25'
+  }
+]
+
+resource hubVnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
   name: '${envPrefix}-HUB-VNET'
   location: location
   properties: {
@@ -18,38 +43,88 @@ resource hubvnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
   }
 }
 
-resource fwsubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' = {
+resource fwSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' = {
   name: 'AzureFirewallSubnet'
-  parent: hubvnet
+  parent: hubVnet
   properties: {
     addressPrefix: '10.0.0.0/26'
   }
 }
 
-resource spokevnet 'Microsoft.Network/virtualNetworks@2023-05-01' = [for i in range(1, 2): {
-  name: '${envPrefix}-SPOKE${i}-VNET'
+resource fwPolicy 'Microsoft.Network/firewallPolicies@2023-09-01' = {
+  name: '${fwName}-POLICY'
+  location: location
+  properties: {
+    threatIntelMode: 'Alert'
+    sku: {
+      tier: 'Standard'
+    }
+  }
+}
+
+resource fwPip 'Microsoft.Network/publicIPAddresses@2023-09-01' = {
+  name: '${fwName}-PIP'
+  location: location
+  sku: {
+    name: 'Standard'
+  }
+  properties: {
+    publicIPAllocationMethod: 'Static'
+  }
+}
+
+resource fw 'Microsoft.Network/azureFirewalls@2023-09-01' = {
+  name: fwName
+  location: location
+  properties: {
+    sku: {
+      name: 'AZFW_VNet'
+      tier: 'Standard'
+    }
+    ipConfigurations: [
+      {
+        name: 'AzureFirewallIpConfig'
+        properties: {
+          subnet: {
+            id: fwSubnet.id
+          }
+          publicIPAddress: {
+            id: fwPip.id
+          }
+        }
+      }
+    ]
+    firewallPolicy: {
+      id: fwPolicy.id
+    }
+  }
+}
+
+output fwPublicIP string = fwPip.properties.ipAddress
+output fwPrivateIP string = fw.properties.ipConfigurations[0].properties.privateIPAddress
+
+resource spokeVnet 'Microsoft.Network/virtualNetworks@2023-05-01' = [for spoke in spokeList: {
+  name: spoke.name
   location: location
   properties: {
     addressSpace: {
       addressPrefixes: [
-        '192.168.${i}.0/24'
+        spoke.addressPrefix
       ]
     }
   }
 }]
 
-resource spokesubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' = [for (vnet, i) in spokevnet: {
-  name: 'AzureFirewallSubnet'
-  parent: spokevnet[i]
+resource spokeSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' = [for i in range(0, length(spokeList) - 1): {
+  name: 'subnet'
+  parent: spokeVnet[i]
   properties: {
-    addressPrefix: '192.168.${i}.0/26'
+    addressPrefix: spokeList[i].subnetPrefix
   }
 }]
 
-
-
-resource nic 'Microsoft.Network/networkInterfaces@2023-05-01' = {
-  name: '${vmName}-NIC'
+resource nic 'Microsoft.Network/networkInterfaces@2023-05-01' = [for (vm, i) in vmList: {
+  name: '${vm.name}-NIC'
   location: location
   properties: {
     ipConfigurations: [
@@ -57,16 +132,19 @@ resource nic 'Microsoft.Network/networkInterfaces@2023-05-01' = {
         name: 'ipConfig'
         properties: {
           subnet: {
-            id: subnet.id
+            id: spokeSubnet[i].id
           }
+          privateIPAllocationMethod: 'Static'
+          privateIPAddress: vm.ip
         }
       }
     ]
   }
-}
+  dependsOn: spokeSubnet
+}]
 
-resource vm 'Microsoft.Compute/virtualMachines@2023-07-01' = {
-  name: vmName
+resource vm 'Microsoft.Compute/virtualMachines@2023-07-01' = [for (vm, i) in vmList: {
+  name: vm.name
   location: location
   properties: {
     hardwareProfile: {
@@ -80,23 +158,26 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-07-01' = {
         version: 'latest'
       }
       osDisk: {
-        name: '${vmName}-osdisk'
+        name: '${vm.name}-OSDISK'
         caching: 'ReadWrite'
         createOption: 'FromImage'
         diskSizeGB: 128
       }
     }
     osProfile: {
-      computerName: vmName
+      computerName: vm.name
       adminUsername: adminUsername
       adminPassword: adminPassword
     }
     networkProfile: {
       networkInterfaces: [
         {
-          id: nic.id
+          id: nic[i].id
         }
       ]
     }
   }
-}
+  dependsOn: [
+    nic
+  ]
+}]
