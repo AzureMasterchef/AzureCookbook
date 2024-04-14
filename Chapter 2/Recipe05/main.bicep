@@ -100,6 +100,7 @@ resource privateDnsRecord 'Microsoft.Network/privateDnsZones/A@2020-06-01' = {
 
 resource privateDnsLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
   name: 'vnetLink'
+  location: 'global'
   parent: privateDnsZone
   properties: {
     virtualNetwork: {
