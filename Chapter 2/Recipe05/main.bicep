@@ -6,6 +6,7 @@ param adminUsername string = 'adminUser'
 param adminPassword string
 
 var vmNameList = ['DNS-VM', 'CLIENT-VM']
+var dnsIp = '10.0.0.100'
 
 resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
   name: '${envPrefix}-VNET'
@@ -14,6 +15,11 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
     addressSpace: {
       addressPrefixes: [
         '10.0.0.0/16'
+      ]
+    }
+    dhcpOptions: {
+      dnsServers: [
+        dnsIp
       ]
     }
   }
@@ -27,7 +33,7 @@ resource subnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' = {
   }
 }
 
-resource nic 'Microsoft.Network/networkInterfaces@2023-05-01' = [for vmName in vmNameList: {
+resource nic 'Microsoft.Network/networkInterfaces@2023-05-01' = [for (vmName, i) in vmNameList: {
   name: '${vmName}-NIC'
   location: location
   properties: {
@@ -38,13 +44,15 @@ resource nic 'Microsoft.Network/networkInterfaces@2023-05-01' = [for vmName in v
           subnet: {
             id: subnet.id
           }
+          privateIPAllocationMethod: i == 0 ? 'Static' : 'Dynamic'
+          privateIPAddress: i == 0 ? dnsIp : null
         }
       }
     ]
   }
 }]
 
-resource vm 'Microsoft.Compute/virtualMachines@2023-07-01' = [for (vmName, i) in vmNameList:{
+resource vm 'Microsoft.Compute/virtualMachines@2023-09-01' = [for (vmName, i) in vmNameList:{
   name: vmName
   location: location
   properties: {
@@ -103,6 +111,7 @@ resource privateDnsLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2
   location: 'global'
   parent: privateDnsZone
   properties: {
+    registrationEnabled: false
     virtualNetwork: {
       id: vnet.id
     }
