@@ -1,4 +1,4 @@
-$envPrefix = "Recipe02-01"
+$envPrefix = "Recipe02-08"
 $location = "westeurope"
 $rgName = "$envPrefix-rg"
 
@@ -12,3 +12,4 @@ if(-not $rg) {
 New-AzResourceGroupDeployment -ResourceGroupName $rgName `
     -TemplateFile .\main.bicep `
     -envPrefix $envPrefix
+
