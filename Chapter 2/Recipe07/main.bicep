@@ -6,6 +6,7 @@ param adminUsername string = 'adminUser'
 param adminPassword string
 
 var fwName = 'AZFW'
+var wafName = 'WAF'
 
 var vmList = [
   {
@@ -18,21 +19,40 @@ var vmList = [
   } 
 ]
 
-var spokeList = [
+var spokeSubnetList = [
   {
-    name: '${envPrefix}-SPOKE1-VNET'
-    addressPrefix: '192.168.0.0/24'
-    subnetPrefix: '192.168.0.0/25'
+    name: 'wafSubnet'
+    subnetPrefix: '192.168.0.0/24'
   }
   {
-    name: '${envPrefix}-SPOKE2-VNET'
-    addressPrefix: '172.16.0.0/24'
-    subnetPrefix: '172.16.0.0/25'
+    name: 'appSubnet'
+    subnetPrefix: '192.168.1.0/24'
+  }
+]
+
+var rtList = [
+  {
+    name: 'SPOKE-TO-HUB-RT'
+    routes: [
+      {
+        name: 'to-app'
+        addressPrefix: first(filter(spokeSubnetList, s => s.name == 'appSubnet')).subnetPrefix
+      }
+    ]
+  }
+  {
+    name: 'HUB-TO-SPOKE-RT'
+    routes: [
+      {
+        name: 'to-waf'
+        addressPrefix: first(filter(spokeSubnetList, s => s.name == 'wafSubnet')).subnetPrefix
+      }
+    ]
   }
 ]
 
 resource hubVnet 'Microsoft.Network/virtualNetworks@2023-04-01' = {
-  name: '${envPrefix}-HUB-VNET'
+  name: 'HUB-VNET'
   location: location
   properties: {
     addressSpace: {
@@ -103,26 +123,17 @@ resource fw 'Microsoft.Network/azureFirewalls@2023-09-01' = {
 output fwPublicIP string = fwPip.properties.ipAddress
 output fwPrivateIP string = fw.properties.ipConfigurations[0].properties.privateIPAddress
 
-
-resource rt 'Microsoft.Network/routeTables@2023-04-01' = [for (spoke, i) in spokeList: {  
-  name: 'SPOKE${i+1}-RT'
+resource rt 'Microsoft.Network/routeTables@2023-04-01' = [for rt in rtList: {  
+  name: rt.name
   location: location
   properties: {
     routes: [
-      {
-        name: 'to-internet'
+      for route in rt.routes: {
+        name: route.name
         properties: {
-          addressPrefix: '0.0.0.0/0'
+          addressPrefix: route.addressPrefix
           nextHopType: 'VirtualAppliance'
-          nextHopIpAddress: '10.0.0.4'
-        }
-      }
-      {
-        name: 'to-spoke${i == 0 ? 2 : 1}'
-        properties: {
-          addressPrefix: i == 0 ? spokeList[1].addressPrefix : spokeList[0].addressPrefix
-          nextHopType: 'VirtualAppliance'
-          nextHopIpAddress: '10.0.0.4'
+          nextHopIpAddress: fw.properties.ipConfigurations[0].properties.privateIPAddress
         }
       }
     ]
@@ -130,87 +141,31 @@ resource rt 'Microsoft.Network/routeTables@2023-04-01' = [for (spoke, i) in spok
   }
 }]
 
-resource spokeVnet 'Microsoft.Network/virtualNetworks@2023-04-01' = [for spoke in spokeList: {
-  name: spoke.name
+resource spokeVnet 'Microsoft.Network/virtualNetworks@2023-04-01' = {
+  name: '${envPrefix}-SPOKE-VNET'
   location: location
   properties: {
     addressSpace: {
       addressPrefixes: [
-        spoke.addressPrefix
+        '192.168.0.0/23'
       ]
     }
   }
-}]
+}
 
-resource spokeSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-04-01' = [for (spoke, i) in spokeList: {
-  name: 'spk${i+1}-subnet'
-  parent: spokeVnet[i]
+resource spokeSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-04-01' = [for (subnet, i) in spokeSubnetList: {
+  name: subnet.name
+  parent: spokeVnet
   properties: {
-    addressPrefix: spoke.subnetPrefix
+    addressPrefix: subnet.subnetPrefix
     routeTable: {
       id: rt[i].id
     }
   }
 }]
 
-resource nic 'Microsoft.Network/networkInterfaces@2023-04-01' = [for (vm, i) in vmList: {
-  name: '${vm.name}-NIC'
-  location: location
-  properties: {
-    ipConfigurations: [
-      {
-        name: 'ipConfig'
-        properties: {
-          subnet: {
-            id: spokeSubnet[i].id
-          }
-          privateIPAllocationMethod: 'Static'
-          privateIPAddress: vm.ip
-        }
-      }
-    ]
-  }
-}]
-
-resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' = [for (vm, i) in vmList: {
-  name: vm.name
-  location: location
-  properties: {
-    hardwareProfile: {
-      vmSize: vmSize
-    }
-    storageProfile: {
-      imageReference: {
-        publisher: 'MicrosoftWindowsServer'
-        offer: 'WindowsServer'
-        sku: '2022-Datacenter'
-        version: 'latest'
-      }
-      osDisk: {
-        name: '${vm.name}-OSDISK'
-        caching: 'ReadWrite'
-        createOption: 'FromImage'
-        diskSizeGB: 128
-      }
-    }
-    osProfile: {
-      computerName: vm.name
-      adminUsername: adminUsername
-      adminPassword: adminPassword
-    }
-    networkProfile: {
-      networkInterfaces: [
-        {
-          id: nic[i].id
-        }
-      ]
-    }
-  }
-}]
-
-@batchSize(1)
-resource peeringH2S 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-04-01' = [for (spoke, i) in spokeList: {
-  name: 'hub-to-spoke${i}-peer'
+resource peeringH2S 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-04-01' = {
+  name: 'hub-to-spoke-peer'
   parent: hubVnet
   properties: {
     allowVirtualNetworkAccess: true
@@ -218,18 +173,18 @@ resource peeringH2S 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@20
     allowGatewayTransit: false
     useRemoteGateways: false
     remoteVirtualNetwork: {
-      id: spokeVnet[i].id
+      id: spokeVnet.id
     }
   }
   dependsOn: [
-    spokeSubnet[i]
+    spokeSubnet[0]
+    spokeSubnet[1]
   ]
-}]
+}
 
-@batchSize(1)
-resource peeringS2H 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-04-01' = [for (spoke, i) in spokeList: {
-  name: 'spoke${i}-to-hub-peer'
-  parent: spokeVnet[i]
+resource peeringS2H 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-04-01' = {
+  name: 'spoke-to-hub-peer'
+  parent: spokeVnet
   properties: {
     allowVirtualNetworkAccess: true
     allowForwardedTraffic: true
@@ -242,7 +197,30 @@ resource peeringS2H 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@20
   dependsOn: [
     fwSubnet
   ]
-}]
+}
+
+resource waf 'Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies@2020-11-01' = {
+  name: 'WAF'
+  location: location
+  properties: {
+    policySettings: {
+      requestBodyCheck: true
+      maxRequestBodySizeInKb: 'maxRequestBodySizeInKb'
+      fileUploadLimitInMb: 'fileUploadLimitInMb'
+      state: 'Enabled'
+      mode: 'Detection'
+    }
+    managedRules: {
+      managedRuleSets: [
+        {
+          ruleSetType: 'ruleSetType'
+          ruleSetVersion: 'ruleSetVersion'
+        }
+      ]
+    }
+  }
+}
+
 
 resource privDns 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   name: 'internal.azurecookbook.info'
