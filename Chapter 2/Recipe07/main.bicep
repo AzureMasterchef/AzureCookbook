@@ -103,6 +103,33 @@ resource fw 'Microsoft.Network/azureFirewalls@2023-09-01' = {
 output fwPublicIP string = fwPip.properties.ipAddress
 output fwPrivateIP string = fw.properties.ipConfigurations[0].properties.privateIPAddress
 
+
+resource rt 'Microsoft.Network/routeTables@2023-04-01' = [for (spoke, i) in spokeList: {  
+  name: 'SPOKE${i+1}-RT'
+  location: location
+  properties: {
+    routes: [
+      {
+        name: 'to-internet'
+        properties: {
+          addressPrefix: '0.0.0.0/0'
+          nextHopType: 'VirtualAppliance'
+          nextHopIpAddress: '10.0.0.4'
+        }
+      }
+      {
+        name: 'to-spoke${i == 0 ? 2 : 1}'
+        properties: {
+          addressPrefix: i == 0 ? spokeList[1].addressPrefix : spokeList[0].addressPrefix
+          nextHopType: 'VirtualAppliance'
+          nextHopIpAddress: '10.0.0.4'
+        }
+      }
+    ]
+    disableBgpRoutePropagation: true
+  }
+}]
+
 resource spokeVnet 'Microsoft.Network/virtualNetworks@2023-04-01' = [for spoke in spokeList: {
   name: spoke.name
   location: location
@@ -120,6 +147,9 @@ resource spokeSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-04-01' = [f
   parent: spokeVnet[i]
   properties: {
     addressPrefix: spoke.subnetPrefix
+    routeTable: {
+      id: rt[i].id
+    }
   }
 }]
 
@@ -177,3 +207,68 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' = [for (vm, i) in vmL
     }
   }
 }]
+
+@batchSize(1)
+resource peeringH2S 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-04-01' = [for (spoke, i) in spokeList: {
+  name: 'hub-to-spoke${i}-peer'
+  parent: hubVnet
+  properties: {
+    allowVirtualNetworkAccess: true
+    allowForwardedTraffic: true
+    allowGatewayTransit: false
+    useRemoteGateways: false
+    remoteVirtualNetwork: {
+      id: spokeVnet[i].id
+    }
+  }
+  dependsOn: [
+    spokeSubnet[i]
+  ]
+}]
+
+@batchSize(1)
+resource peeringS2H 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-04-01' = [for (spoke, i) in spokeList: {
+  name: 'spoke${i}-to-hub-peer'
+  parent: spokeVnet[i]
+  properties: {
+    allowVirtualNetworkAccess: true
+    allowForwardedTraffic: true
+    allowGatewayTransit: false
+    useRemoteGateways: false
+    remoteVirtualNetwork: {
+      id: hubVnet.id
+    }
+  }
+  dependsOn: [
+    fwSubnet
+  ]
+}]
+
+resource privDns 'Microsoft.Network/privateDnsZones@2020-06-01' = {
+  name: 'internal.azurecookbook.info'
+  location: 'global'
+}
+
+resource privDnsLinkSpoke 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = [for (spoke, i) in spokeList: {
+  name: 'spoke${i+1}-link'
+  parent: privDns
+  location: 'global'
+  properties: {
+    virtualNetwork: {
+      id: spokeVnet[i].id
+    }
+    registrationEnabled: true
+  }
+}]
+
+resource privDnsLinkHub 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
+  name: 'hub-link'
+  parent: privDns
+  location: 'global'
+  properties: {
+    virtualNetwork: {
+      id: hubVnet.id
+    }
+    registrationEnabled: false
+  }
+}

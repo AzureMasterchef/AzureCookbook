@@ -7,7 +7,7 @@ if(-not $rg) {
     $rg = New-AzResourceGroup -Name $rgName -Location $location
 }
 
-# Upload the main.bicep file from the Chapter 02/Recipe05 folder to cloud shell
+# Upload the main.bicep file from the Chapter 02/Recipe08 folder to cloud shell
 
 New-AzResourceGroupDeployment -ResourceGroupName $rgName `
     -TemplateFile .\main.bicep `
