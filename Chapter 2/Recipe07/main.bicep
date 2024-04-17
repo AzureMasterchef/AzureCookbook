@@ -1,23 +1,5 @@
 param location string = resourceGroup().location
-param vmSize string = 'Standard_D2s_v3'
 param envPrefix string
-param adminUsername string = 'adminUser'
-@secure()
-param adminPassword string
-
-var fwName = 'AZFW'
-var wafName = 'WAF'
-
-var vmList = [
-  {
-    name: 'VM1'
-    ip: '192.168.0.10'
-  }
-  {
-    name: 'VM2'
-    ip: '172.16.0.10'
-  } 
-]
 
 var spokeSubnetList = [
   {
@@ -32,7 +14,7 @@ var spokeSubnetList = [
 
 var rtList = [
   {
-    name: 'SPOKE-TO-HUB-RT'
+    name: 'WAF-RT'
     routes: [
       {
         name: 'to-app'
@@ -41,7 +23,7 @@ var rtList = [
     ]
   }
   {
-    name: 'HUB-TO-SPOKE-RT'
+    name: 'APP-RT'
     routes: [
       {
         name: 'to-waf'
@@ -72,18 +54,18 @@ resource fwSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-04-01' = {
 }
 
 resource fwPolicy 'Microsoft.Network/firewallPolicies@2023-09-01' = {
-  name: '${fwName}-POLICY'
+  name: 'AZFW-POLICY'
   location: location
   properties: {
     threatIntelMode: 'Alert'
     sku: {
-      tier: 'Standard'
+      tier: 'Premium'
     }
   }
 }
 
 resource fwPip 'Microsoft.Network/publicIPAddresses@2023-09-01' = {
-  name: '${fwName}-PIP'
+  name: 'AZFW-PIP'
   location: location
   sku: {
     name: 'Standard'
@@ -94,12 +76,12 @@ resource fwPip 'Microsoft.Network/publicIPAddresses@2023-09-01' = {
 }
 
 resource fw 'Microsoft.Network/azureFirewalls@2023-09-01' = {
-  name: fwName
+  name: 'AZFW'
   location: location
   properties: {
     sku: {
       name: 'AZFW_VNet'
-      tier: 'Standard'
+      tier: 'Premium'
     }
     ipConfigurations: [
       {
@@ -142,7 +124,7 @@ resource rt 'Microsoft.Network/routeTables@2023-04-01' = [for rt in rtList: {
 }]
 
 resource spokeVnet 'Microsoft.Network/virtualNetworks@2023-04-01' = {
-  name: '${envPrefix}-SPOKE-VNET'
+  name: 'SPOKE-VNET'
   location: location
   properties: {
     addressSpace: {
@@ -153,13 +135,15 @@ resource spokeVnet 'Microsoft.Network/virtualNetworks@2023-04-01' = {
   }
 }
 
+@batchSize(1)
 resource spokeSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-04-01' = [for (subnet, i) in spokeSubnetList: {
   name: subnet.name
   parent: spokeVnet
   properties: {
+    privateEndpointNetworkPolicies: 'Enabled'
     addressPrefix: subnet.subnetPrefix
     routeTable: {
-      id: rt[i].id
+      id: i == 0 ? null : rt[i].id
     }
   }
 }]
@@ -199,54 +183,124 @@ resource peeringS2H 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@20
   ]
 }
 
-resource waf 'Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies@2020-11-01' = {
-  name: 'WAF'
+resource wafIp 'Microsoft.Network/publicIPAddresses@2019-11-01' = {
+  name: 'WAF-PIP'
+  location: location
+  sku: {
+    name: 'Standard'
+  }
+  properties: {
+    publicIPAllocationMethod: 'static'
+  }
+}
+
+resource appServicePlan 'Microsoft.Web/serverfarms@2020-12-01' = {
+  name: 'WEBAPP-ASP'
+  location: location
+  sku: {
+    name: 'S1'
+    capacity: 1
+  }
+  properties: {
+    reserved: true
+  }
+  kind: 'linux'
+}
+
+resource webApp 'Microsoft.Web/sites@2020-12-01' = {
+  name: take('${envPrefix}-${guid(resourceGroup().id, subscription().id)}', 20)
   location: location
   properties: {
-    policySettings: {
-      requestBodyCheck: true
-      maxRequestBodySizeInKb: 'maxRequestBodySizeInKb'
-      fileUploadLimitInMb: 'fileUploadLimitInMb'
-      state: 'Enabled'
-      mode: 'Detection'
+    serverFarmId: appServicePlan.id
+    siteConfig: {
+      appSettings: []
+      linuxFxVersion: 'DOCKER|httpd:latest'
     }
-    managedRules: {
-      managedRuleSets: [
-        {
-          ruleSetType: 'ruleSetType'
-          ruleSetVersion: 'ruleSetVersion'
+    httpsOnly: true
+  }
+}
+
+resource privateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' = {
+  name: 'WEBAPP-PE'
+  location: location
+  properties: {
+    subnet: {
+      id: spokeSubnet[1].id
+    }
+    privateLinkServiceConnections: [
+      {
+        name: 'WEBAPP-ServiceConnection'
+        properties: {
+          privateLinkServiceId: webApp.id
+          groupIds: [
+            'sites'
+          ]
         }
-      ]
-    }
+      }
+    ]
   }
 }
 
-
-resource privDns 'Microsoft.Network/privateDnsZones@2020-06-01' = {
-  name: 'internal.azurecookbook.info'
+resource privateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
+  name: 'privatelink.azurewebsites.net'
   location: 'global'
 }
 
-resource privDnsLinkSpoke 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = [for (spoke, i) in spokeList: {
-  name: 'spoke${i+1}-link'
-  parent: privDns
-  location: 'global'
-  properties: {
-    virtualNetwork: {
-      id: spokeVnet[i].id
-    }
-    registrationEnabled: true
-  }
-}]
-
-resource privDnsLinkHub 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
+resource privateDnsZoneHubLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
+  parent: privateDnsZone
   name: 'hub-link'
-  parent: privDns
   location: 'global'
   properties: {
+    registrationEnabled: false
     virtualNetwork: {
       id: hubVnet.id
     }
-    registrationEnabled: false
   }
 }
+
+resource privateDnsZoneSpokeLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
+  parent: privateDnsZone
+  name: 'spoke-link'
+  location: 'global'
+  properties: {
+    registrationEnabled: false
+    virtualNetwork: {
+      id: spokeVnet.id
+    }
+  }
+}
+
+resource privateEndpointDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-09-01' = {
+  name: 'WEBAPP-PE-DNSZoneGroup'
+  parent: privateEndpoint
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'default'
+        properties: {
+          privateDnsZoneId: privateDnsZone.id
+        }
+      }
+    ]
+  }
+}
+
+resource keyVault 'Microsoft.KeyVault/vaults@2023-02-01' = {
+  name: take('${envPrefix}-kv-${guid(resourceGroup().id, subscription().id)}', 24)
+  location: location
+  properties: {
+    enabledForDeployment: true
+    enabledForTemplateDeployment: true
+    enabledForDiskEncryption: true
+    tenantId: subscription().tenantId
+    enablePurgeProtection: false
+    enableSoftDelete: false
+    accessPolicies: [
+    ]
+    sku: {
+      name: 'standard'
+      family: 'A'
+    }
+  }
+}
+
