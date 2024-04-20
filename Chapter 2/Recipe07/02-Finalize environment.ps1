@@ -75,8 +75,7 @@ $fwPolicy = Get-AzFirewallPolicy -Name "AZFW-POLICY" -ResourceGroupName $rgName
 $fwPolicy | Set-AzFirewallPolicy -ThreatIntelMode Deny `
                 -IntrusionDetection (New-AzFirewallPolicyIntrusionDetection -Mode Deny) `
                 -DnsSetting (New-AzFirewallPolicyDnsSetting -EnableProxy) `
-                -UserAssignedIdentityId $usrId.Id `
-                ## uncomment the following line to enable TLS inspection
+                -UserAssignedIdentityId $usrId.Id #` ## uncomment to enable TLS inspection
                 #-TransportSecurityName "recipe0207-wildcard" `
                 #-TransportSecurityKeyVaultSecretId $certSecretId
 
