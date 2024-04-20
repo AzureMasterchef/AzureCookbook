@@ -142,9 +142,7 @@ resource spokeSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-04-01' = [f
   properties: {
     privateEndpointNetworkPolicies: 'Enabled'
     addressPrefix: subnet.subnetPrefix
-    routeTable: {
-      id: i == 0 ? null : rt[i].id
-    }
+    routeTable:i == 0 ? null : { id: rt[i].id }
   }
 }]
 
@@ -208,7 +206,7 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2020-12-01' = {
 }
 
 resource webApp 'Microsoft.Web/sites@2020-12-01' = {
-  name: take('${envPrefix}-${guid(resourceGroup().id, subscription().id)}', 20)
+  name: take('${envPrefix}-${guid(resourceGroup().id)}', 20)
   location: location
   properties: {
     serverFarmId: appServicePlan.id
@@ -286,15 +284,13 @@ resource privateEndpointDnsZoneGroup 'Microsoft.Network/privateEndpoints/private
 }
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-02-01' = {
-  name: take('${envPrefix}-kv-${guid(resourceGroup().id, subscription().id)}', 24)
+  name: take('${envPrefix}-kv-${guid(resourceGroup().id)}', 23)
   location: location
   properties: {
     enabledForDeployment: true
     enabledForTemplateDeployment: true
     enabledForDiskEncryption: true
     tenantId: subscription().tenantId
-    enablePurgeProtection: false
-    enableSoftDelete: false
     accessPolicies: [
     ]
     sku: {

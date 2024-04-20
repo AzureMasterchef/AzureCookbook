@@ -31,15 +31,33 @@ $frontendIp = New-AzApplicationGatewayFrontendIPConfig -Name "appGwFrontendIp" -
 $backendAddressPool = New-AzApplicationGatewayBackendAddressPool -Name "appGwBackendPool" -BackendFqdns $webApp.DefaultHostName
 $backendHttpSettings = New-AzApplicationGatewayBackendHttpSettings -Name "appGwBackendHttpSettings" -Port 443 -Protocol Https -CookieBasedAffinity Enabled -RequestTimeout 30 -PickHostNameFromBackendAddress
 $appGwSslCert = New-AzApplicationGatewaySslCertificate -KeyVaultSecretId $certSecretId -Name $certSecret.Name
-$listener = New-AzApplicationGatewayHttpListener -Name "appGwHttpListener" -Protocol Https -SslCertificate $appGwSslCert -FrontendIPConfiguration $frontendIp -FrontendPort $frontendPort
+$listener = New-AzApplicationGatewayHttpListener -Name "appGwHttpListener" -Protocol Https -SslCertificate $appGwSslCert -FrontendIPConfiguration $frontendIp -FrontendPort $frontendPort 
 $rule = New-AzApplicationGatewayRequestRoutingRule -Name "rule1" -RuleType Basic -BackendHttpSettings $backendHttpSettings -HttpListener $listener -BackendAddressPool $backendAddressPool -Priority 1
-$wafConfig = New-AzApplicationGatewayWebApplicationFirewallConfiguration -Enabled $true -FirewallMode "Detection" -RuleSetType "OWASP" -RuleSetVersion "3.2"
-$sku = New-AzApplicationGatewaySku -Name WAF_v2 -Tier WAF_v2 -Capacity 1
+$sku = New-AzApplicationGatewaySku -Name Standard_v2 -Tier Standard_v2 -Capacity 1
+
+$policySetting = New-AzApplicationGatewayFirewallPolicySetting `
+                    -Mode Prevention `
+                    -State Enabled `
+                    -MaxRequestBodySizeInKb 100 `
+                    -MaxFileUploadInMb 100
+$managedRuleSet = New-AzApplicationGatewayFirewallPolicyManagedRuleSet -RuleSetType "OWASP" `
+                    -RuleSetVersion "3.2"
+$wafPolicy = New-AzApplicationGatewayFirewallPolicy `
+                    -Name "WAF-POLICY" `
+                    -ResourceGroup $rgName `
+                    -Location $location `
+                    -PolicySetting $PolicySetting `
+                    -ManagedRule (New-AzApplicationGatewayFirewallPolicyManagedRule -ManagedRuleSet $managedRuleSet)
 
 $appGw = New-AzApplicationGateway -Name "APPGW" -ResourceGroupName $rgName -Location $location -BackendAddressPools $backendAddressPool `
             -BackendHttpSettingsCollection $backendHttpSettings -FrontendIpConfigurations $frontendIp -GatewayIpConfigurations $ipConfig `
-            -FrontendPorts $frontendPort -HttpListeners $listener -RequestRoutingRules $rule -Sku $sku -WebApplicationFirewallConfiguration $wafConfig `
-            -UserAssignedIdentityId $usrId.Id -SslCertificates $appGwSslCert
+            -FrontendPorts $frontendPort -HttpListeners $listener -RequestRoutingRules $rule -Sku $sku `
+            -SslCertificates $appGwSslCert -UserAssignedIdentityId $usrId.Id
+
+
+$appGw.FirewallPolicy = $wafPolicy
+$appGw.Sku = (New-AzApplicationGatewaySku -Name WAF_v2 -Tier WAF_v2 -Capacity 1)
+Set-AzApplicationGateway -ApplicationGateway $appGw
 
 # Attach spoke route table to wafSubnet
 $vnet = Get-AzVirtualNetwork -Name "SPOKE-VNET" -ResourceGroupName $rgName

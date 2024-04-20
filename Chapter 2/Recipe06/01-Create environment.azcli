@@ -2,7 +2,8 @@
 resource_group_name="Recipe02-06-rg"
 location="northeurope"
 network_name="VNet"
-storage_name=storage$RANDOM
+storage1_name=storage1$RANDOM
+storage2_name=storage2$RANDOM
 
 # Create resource group
 echo "Creating resource group"
@@ -16,4 +17,5 @@ az network vnet subnet create --resource-group $resource_group_name --vnet-name 
 
 # Create Storage Account
 echo "Creating Storage Account"
-az storage account create --name $storage_name --resource-group $resource_group_name --location $location --sku Standard_LRS --public-network-access Disabled -o none
+az storage account create --name $storage1_name --resource-group $resource_group_name --location $location --sku Standard_LRS -o none
+az storage account create --name $storage2_name --resource-group $resource_group_name --location $location --sku Standard_LRS --public-network-access Disabled -o none
